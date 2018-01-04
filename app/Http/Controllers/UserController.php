@@ -28,6 +28,14 @@ class UserController extends Controller
     }
 
     /**
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deleted()
+    {
+        return response()->json($this->userRepository->getDeleted(), 200);
+    }
+
+    /**
      * Show the form for creating a new resource.
      *
      * @return Response
