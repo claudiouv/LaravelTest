@@ -14,3 +14,8 @@
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/users', 'UserController@index');
+Route::get('/users/deleted', 'UserController@deleted');
+
+Route::get('/building/elevators/report', 'ElevatorController@index');
