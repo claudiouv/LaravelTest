@@ -18,6 +18,7 @@ Homestead.json
 
 # PhpStorm project
 .idea/
+.idea/workspace.xml
 
 # Rocketeer PHP task runner and deployment package. https://github.com/rocketeers/rocketeer
 .rocketeer/

@@ -23,19 +23,16 @@ class ElevatorRepository
         ElevatorReport::truncate();
         $this->executeElevatorSequence($elevatorSequences);
 
-        $starTime = strtotime('9:00');
-        $endTime = strtotime('20:00');
+        $starTime = strtotime(config('building.start_time'));
+        $endTime = strtotime(config('building.end_time'));
 
-        $diffTimeMinutes = floor(($endTime - $starTime) / 60);
+        $diffTimeMinutes = floor(($endTime - $starTime) / config('building.minutes_in_one_hour'));
 
-        echo  '<br />' . '***Time***| Elevator | Current Floor | Total Floors' . '<br />';
+        echo  config('building.report_header');
         for ($i = 0; $i <= $diffTimeMinutes; $i++) {
             for ($elevatorNumber = 1; $elevatorNumber <= config('building.number_of_elevators'); $elevatorNumber++)
             {
-                $currentTime = $i * 60 + $starTime;
-                $floorAtTime = $this->getElevatorFloorsAtTime($elevatorNumber, $currentTime);
-                $sumOfFloorsAtTime = $this->getElevatorSumOfFloorsAtTime($elevatorNumber, $currentTime);
-                echo date('H:i',$currentTime) . ' _______ ' . $elevatorNumber . ' ______ ' . $floorAtTime . ' ___________ ' . $sumOfFloorsAtTime . '<br />';
+                $this->generateSingleElementReport($i, $starTime, $elevatorNumber);
             }
         }
     }
@@ -109,26 +106,11 @@ class ElevatorRepository
             $starTime = strtotime($elevatorSequence->start_time);
             $endTime = strtotime($elevatorSequence->end_time);
 
-            $diffTimeMinutes = floor(($endTime - $starTime) / 60);
+            $diffTimeMinutes = floor(($endTime - $starTime) / config('building.minutes_in_one_hour'));
             $elevatorRepetitions = ceil($diffTimeMinutes / $elevatorSequence->interval);
 
             for ($i = 0; $i <= $elevatorRepetitions; $i++) {
-                $currentTime = $i * $elevatorSequence->interval * 60 + $starTime;
-                $availableElevatorNumber = $this->checkAvailableElevator($currentTime);
-                if (is_null($availableElevatorNumber)) {
-                    echo 'No elevator available at : ' . date('H:i', $currentTime) . '<br />';
-                    //dd(date('H:i',$currentTime),$elevatorSequence->toArray());
-                } else {
-                    $elevatorFloor = $this->checkElevatorCurrentFloor($availableElevatorNumber);
-                    $elevatorFloorMoves = $this->getElevatorFloorMoves($elevatorSequence, $elevatorFloor);
-                    $this->saveElevatorMoveInReport(
-                        $availableElevatorNumber,
-                        $currentTime,
-                        $elevatorFloor,
-                        $elevatorSequence,
-                        $elevatorFloorMoves
-                    );
-                }
+                $this->executeSingleElevatorRepetition($i, $elevatorSequence, $starTime);
             }
         }
     }
@@ -157,5 +139,55 @@ class ElevatorRepository
     private function getElevatorSumOfFloorsAtTime($elevatorNumber, $currentTime)
     {
         return ElevatorReport::where('elevator_number', $elevatorNumber)->where('time', '<=', date('H:i', $currentTime))->get()->sum('floor_moves');
+    }
+
+    /**
+     * @param $i
+     * @param $starTime
+     * @param $elevatorNumber
+     */
+    private function generateSingleElementReport($i, $starTime, $elevatorNumber)
+    {
+        $currentTime = $i * config('building.minutes_in_one_hour') + $starTime;
+        $floorAtTime = $this->getElevatorFloorsAtTime($elevatorNumber, $currentTime);
+        $sumOfFloorsAtTime = $this->getElevatorSumOfFloorsAtTime($elevatorNumber, $currentTime);
+        echo date('H:i', $currentTime) . str_repeat('_', 7) .
+            $elevatorNumber . str_repeat('_', 6) .
+            $floorAtTime . str_repeat('_', 11) .
+            $sumOfFloorsAtTime . '<br />';
+    }
+
+    /**
+     * @param $availableElevatorNumber
+     * @param $elevatorSequence
+     * @param $currentTime
+     */
+    private function moveElevator($availableElevatorNumber, $elevatorSequence, $currentTime)
+    {
+        $elevatorFloor = $this->checkElevatorCurrentFloor($availableElevatorNumber);
+        $elevatorFloorMoves = $this->getElevatorFloorMoves($elevatorSequence, $elevatorFloor);
+        $this->saveElevatorMoveInReport(
+            $availableElevatorNumber,
+            $currentTime,
+            $elevatorFloor,
+            $elevatorSequence,
+            $elevatorFloorMoves
+        );
+    }
+
+    /**
+     * @param $i
+     * @param $elevatorSequence
+     * @param $starTime
+     */
+    private function executeSingleElevatorRepetition($i, $elevatorSequence, $starTime)
+    {
+        $currentTime = $i * $elevatorSequence->interval * config('building.minutes_in_one_hour') + $starTime;
+        $availableElevatorNumber = $this->checkAvailableElevator($currentTime);
+        if (is_null($availableElevatorNumber)) {
+            echo config('building.no_elevator_available_text') . date('H:i', $currentTime) . '<br />';
+        } else {
+            $this->moveElevator($availableElevatorNumber, $elevatorSequence, $currentTime);
+        }
     }
 }
